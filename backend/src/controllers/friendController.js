@@ -141,7 +141,7 @@ export const getAllFriends = async (req, res) => {
     }
 
     const friends = friendships.map((f) =>
-      f.userA._id.toString() === userId.toString() ? f.userB : f.userA
+      f.userA._id.toString() === userId.toString() ? f.userB : f.userA,
     );
     return res.status(200).json({ friends });
   } catch (error) {
@@ -196,7 +196,7 @@ export const deleteFriend = async (req, res) => {
         .json({ message: "Bạn chưa kết bạn với người này" });
     }
 
-    // Xóa friendship
+    // Xóa bạn
     await Friend.findByIdAndDelete(friendship._id);
 
     return res.status(200).json({

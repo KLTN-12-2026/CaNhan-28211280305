@@ -22,7 +22,6 @@ export const createReport = async (req, res) => {
       return res.status(400).json({ message: "Lý do báo cáo không hợp lệ" });
     }
 
-    // Check duplicate report within 24 hours
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const existingReport = await Report.findOne({
       reporterId,

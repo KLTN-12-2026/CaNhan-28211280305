@@ -16,7 +16,7 @@ export const uploadImage = async (req, res) => {
 
     const result = await uploadImageFromBuffer(req.file.buffer, {
       folder: "gossip_chat/messages",
-      transformation: [], // No transformation for chat images by default
+      transformation: [],
     });
 
     return res.status(200).json({ imgUrl: result.secure_url });
@@ -40,10 +40,10 @@ export const sendDirectMessage = async (req, res) => {
     }
     const isBlocked =
       recipient.blockedUsers.some(
-        (id) => id.toString() === senderId.toString()
+        (id) => id.toString() === senderId.toString(),
       ) ||
       req.user.blockedUsers.some(
-        (id) => id.toString() === recipientId.toString()
+        (id) => id.toString() === recipientId.toString(),
       );
     if (isBlocked) {
       return res.status(403).json({

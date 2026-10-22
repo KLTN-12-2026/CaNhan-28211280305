@@ -21,9 +21,8 @@ router.patch("/:conversationId/seen", MarkAsSeen);
 router.delete("/:conversationId/leave", leaveGroup);
 router.delete("/:conversationId", deleteConversation);
 
-// New group management routes
 router.post("/:conversationId/members", addMembers);
-router.delete("/:conversationId/members/:memberId", removeMember); // Kick member
+router.delete("/:conversationId/members/:memberId", removeMember);
 router.patch("/:conversationId/ownership", transferOwnership);
 
 export default router;

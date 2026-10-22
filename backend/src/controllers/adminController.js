@@ -6,11 +6,6 @@ import AdminLog from "../models/AdminLog.js";
 import { onlineUser, io } from "../socket/index.js";
 import { sendAccountLockedEmail } from "../libs/emailService.js";
 
-// ... existing imports ...
-
-// @desc    Get dashboard statistics for admin
-// @route   GET /api/admin/stats
-// @access  Admin
 export const getDashboardStats = async (req, res) => {
   try {
     const today = new Date();
@@ -19,7 +14,6 @@ export const getDashboardStats = async (req, res) => {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    // 1. Overview Statistics
     const [
       totalUsers,
       newUsersToday,
@@ -28,7 +22,7 @@ export const getDashboardStats = async (req, res) => {
       totalMessages,
       totalReports,
       pendingReports,
-      activeUserIds // Distinct senderIds from messages in last 7 days
+      activeUserIds,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ createdAt: { $gte: start } }),
@@ -43,7 +37,6 @@ export const getDashboardStats = async (req, res) => {
     const activeUsers7d = activeUserIds.length;
     const inactiveUsers = totalUsers - blockedUsers - activeUsers7d;
 
-    // 2. User Analytics - Registrations
     const registrationStats = await User.aggregate([
       { $match: { createdAt: { $gte: thirtyDaysAgo } } },
       {
@@ -55,22 +48,20 @@ export const getDashboardStats = async (req, res) => {
       { $sort: { _id: 1 } },
     ]);
 
-    // Fill missing dates with 0
     const registrationTrend = [];
     for (let i = 0; i < 30; i++) {
-        const date = new Date(thirtyDaysAgo);
-        date.setDate(date.getDate() + i);
-        const dateString = date.toISOString().split('T')[0];
-        const stat = registrationStats.find(s => s._id === dateString);
-        registrationTrend.push({
-            date: dateString,
-            count: stat ? stat.count : 0
-        });
+      const date = new Date(thirtyDaysAgo);
+      date.setDate(date.getDate() + i);
+      const dateString = date.toISOString().split("T")[0];
+      const stat = registrationStats.find((s) => s._id === dateString);
+      registrationTrend.push({
+        date: dateString,
+        count: stat ? stat.count : 0,
+      });
     }
 
-    // 3. User Analytics - Top 5 Active Users
     const topActiveUsers = await Message.aggregate([
-      { $match: { createdAt: { $gte: thirtyDaysAgo } } }, // Messages in last 30 days
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
       { $group: { _id: "$senderId", messageCount: { $sum: 1 } } },
       { $sort: { messageCount: -1 } },
       { $limit: 5 },
@@ -94,7 +85,6 @@ export const getDashboardStats = async (req, res) => {
       },
     ]);
 
-    // 4. Report Analytics - Distribution by Reason
     const reportDistribution = await Report.aggregate([
       { $group: { _id: "$reason", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
@@ -129,23 +119,16 @@ export const getDashboardStats = async (req, res) => {
           .sort({ createdAt: -1 })
           .limit(5)
           .populate("reporterId", "displayName")
-          .populate("targetType") // Note: targetId is dynamic, populate might fail or return null if ref is not dynamic. Report schema targetId is generic ObjectId.
-          // For latest reports table, we might just show ID or basic info. Or fetch target specifically if needed.
-          // Given targetType can be 'user', 'message', 'group', simply populating 'targetId' won't work easily without dynamic ref.
-          // For now, return basic info.
+          .populate("targetType")
           .lean(),
       },
     });
-
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-// @desc    Get all users with search and online status
-// @route   GET /api/admin/users
-// @access  Admin
 export const getAllUsers = async (req, res) => {
   try {
     const { keyword } = req.query;
@@ -165,7 +148,6 @@ export const getAllUsers = async (req, res) => {
     const users = await User.find(query).select("-hashedPassword");
 
     const usersWithStatus = users.map((user) => {
-      // Use user.id which is a string from Mongoose document virtual or user._id.toString()
       const isOnline = onlineUser.has(user._id.toString());
       return {
         ...user.toObject(),
@@ -180,9 +162,6 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// @desc    Update user ban status
-// @route   PATCH /api/admin/users/:id/ban
-// @access  Admin
 export const toggleBanUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -195,25 +174,22 @@ export const toggleBanUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // prevent banning self
     if (user._id.toString() === req.user._id.toString()) {
-        return res.status(400).json({ message: "Cannot ban yourself" });
+      return res.status(400).json({ message: "Cannot ban yourself" });
     }
 
     user.isBanned = isBanned;
     await user.save();
 
-    // Log admin action
     await AdminLog.create({
       adminId,
       action: isBanned ? "BAN_USER" : "UNBAN_USER",
       targetId: user._id,
     });
 
-    // If banned, invalidate sessions and disconnect socket
     if (isBanned) {
       await Session.deleteMany({ userId: user._id });
-      
+
       const socketId = onlineUser.get(user._id.toString());
       if (socketId) {
         const socket = io.sockets.sockets.get(socketId);
@@ -221,35 +197,34 @@ export const toggleBanUser = async (req, res) => {
           socket.disconnect(true);
         }
         onlineUser.delete(user._id.toString());
-        // Emit updated online list
         io.emit("online-users", Array.from(onlineUser.keys()));
       }
     }
 
-    // Send email notification
-    // Don't wait for email to send response
     sendAccountLockedEmail(user.email, isBanned);
-    
+
     await user.save();
 
-    res.status(200).json({ message: `User ${isBanned ? "banned" : "unbanned"} successfully`, user });
+    res
+      .status(200)
+      .json({
+        message: `User ${isBanned ? "banned" : "unbanned"} successfully`,
+        user,
+      });
   } catch (error) {
     console.error("Error in toggleBanUser: ", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-// @desc    Update user role
-// @route   PATCH /api/admin/users/:id/role
-// @access  Admin
 export const updateUserRole = async (req, res) => {
   try {
     const { id } = req.params;
-    const { role } = req.body; // 'user' or 'admin'
+    const { role } = req.body;
     const adminId = req.user._id;
 
-    if (!['user', 'admin'].includes(role)) {
-       return res.status(400).json({ message: "Invalid role" });
+    if (!["user", "admin"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
     }
 
     const user = await User.findById(id);
@@ -258,15 +233,13 @@ export const updateUserRole = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // prevent changing own role
     if (user._id.toString() === req.user._id.toString()) {
-        return res.status(400).json({ message: "Cannot change your own role" });
+      return res.status(400).json({ message: "Cannot change your own role" });
     }
 
     user.role = role;
     await user.save();
 
-    // Log admin action
     await AdminLog.create({
       adminId,
       action: `UPDATE_ROLE_TO_${role.toUpperCase()}`,
@@ -280,9 +253,6 @@ export const updateUserRole = async (req, res) => {
   }
 };
 
-// @desc    Delete user
-// @route   DELETE /api/admin/users/:id
-// @access  Admin
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -293,15 +263,13 @@ export const deleteUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    
-    // prevent deleting self
+
     if (user._id.toString() === req.user._id.toString()) {
-        return res.status(400).json({ message: "Cannot delete yourself" });
+      return res.status(400).json({ message: "Cannot delete yourself" });
     }
 
     await User.findByIdAndDelete(id);
 
-    // Log admin action
     await AdminLog.create({
       adminId,
       action: "DELETE_USER",
@@ -310,21 +278,17 @@ export const deleteUser = async (req, res) => {
 
     res.status(200).json({ message: "User deleted successfully" });
   } catch (error) {
-     console.error("Error in deleteUser: ", error);
+    console.error("Error in deleteUser: ", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-// @desc    Get all reports
-// @route   GET /api/admin/reports
-// @access  Admin
 export const getReports = async (req, res) => {
   try {
     const { status } = req.query;
     const query = status ? { status } : {};
-    
-    // Populate reporter info
-     const reports = await Report.find(query)
+
+    const reports = await Report.find(query)
       .populate("reporterId", "displayName email avatarUrl")
       .sort({ createdAt: -1 });
 
@@ -335,13 +299,10 @@ export const getReports = async (req, res) => {
   }
 };
 
-// @desc    Resolve a report
-// @route   PATCH /api/admin/reports/:id/resolve
-// @access  Admin
 export const resolveReport = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, actionTaken } = req.body; // e.g., status='RESOLVED' or 'REVIEWED'
+    const { status, actionTaken } = req.body;
     const adminId = req.user._id;
 
     const report = await Report.findById(id);
@@ -352,16 +313,12 @@ export const resolveReport = async (req, res) => {
     report.status = status || "RESOLVED";
     await report.save();
 
-    // Log the resolution action
     await AdminLog.create({
       adminId,
       action: actionTaken || `RESOLVE_REPORT_${report.status}`,
       targetId: report.targetId,
-      reportId: report._id
+      reportId: report._id,
     });
-    
-    // Optional: Notify the reported user via socket (anonymous)
-    // if report.targetType === 'user' && status === 'RESOLVED' ...
 
     res.status(200).json({ message: "Report resolved", report });
   } catch (error) {
@@ -370,15 +327,12 @@ export const resolveReport = async (req, res) => {
   }
 };
 
-// @desc    Get system logs
-// @route   GET /api/admin/logs
-// @access  Admin
 export const getAdminLogs = async (req, res) => {
   try {
     const logs = await AdminLog.find()
       .populate("adminId", "displayName email")
       .sort({ createdAt: -1 })
-      .limit(100); 
+      .limit(100);
 
     res.status(200).json(logs);
   } catch (error) {
