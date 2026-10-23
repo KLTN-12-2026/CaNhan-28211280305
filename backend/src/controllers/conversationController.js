@@ -83,7 +83,6 @@ export const createConversation = async (req, res) => {
     const isBlocked = isDirectConversationBlocked(conversation, req.user);
     const formatted = { ...conversation.toObject(), participants, isBlocked };
     if (type === "group") {
-      // Notify all members including the creator
       [userId, ...memberIds].forEach((uid) => {
         io.to(uid.toString()).emit("new-group", formatted);
       });
@@ -246,11 +245,9 @@ export const leaveGroup = async (req, res) => {
       conversation.group.createBy.toString() === userId &&
       conversation.participants.length > 1
     ) {
-      return res
-        .status(400)
-        .json({
-          message: "Trưởng nhóm phải chuyển giao quyền trước khi rời nhóm.",
-        });
+      return res.status(400).json({
+        message: "Trưởng nhóm phải chuyển giao quyền trước khi rời nhóm.",
+      });
     }
 
     // Kiểm tra user có phải thành viên không
@@ -313,11 +310,9 @@ export const deleteConversation = async (req, res) => {
         (p) => p.userId.toString() === userId,
       );
       if (!isMember) {
-        return res
-          .status(403)
-          .json({
-            message: "Bạn không phải thành viên của cuộc trò chuyện này",
-          });
+        return res.status(403).json({
+          message: "Bạn không phải thành viên của cuộc trò chuyện này",
+        });
       }
     }
 
@@ -360,11 +355,9 @@ export const addMembers = async (req, res) => {
     }
 
     if (conversation.type !== "group") {
-      return res
-        .status(400)
-        .json({
-          message: "Không thể thêm thành viên vào cuộc trò chuyện trực tiếp",
-        });
+      return res.status(400).json({
+        message: "Không thể thêm thành viên vào cuộc trò chuyện trực tiếp",
+      });
     }
 
     const isMember = conversation.participants.some(
