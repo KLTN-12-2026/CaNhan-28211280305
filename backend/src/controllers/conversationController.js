@@ -1,7 +1,6 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import { io } from "../socket/index.js";
-import User from "../models/User.js";
 
 const isDirectConversationBlocked = (conversation, currentUser) => {
   if (conversation.type !== "direct") return false;
@@ -140,10 +139,10 @@ export const getConversation = async (req, res) => {
 export const getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { limit = 50, cusror } = req.query;
+    const { limit = 50, cursor } = req.query;
     const query = { conversationId };
-    if (cusror) {
-      query.createdAt = { $lt: new Date(cusror) };
+    if (cursor) {
+      query.createdAt = { $lt: new Date(cursor) };
     }
     let messages = await Message.find(query)
       .sort({ createdAt: -1 })
@@ -240,7 +239,6 @@ export const leaveGroup = async (req, res) => {
       return res.status(400).json({ message: "Chỉ có thể rời khỏi nhóm chat" });
     }
 
-    // If owner leaves, must transfer ownership first (or simply delete the group if they are the only one, handled below)
     if (
       conversation.group.createBy.toString() === userId &&
       conversation.participants.length > 1
@@ -454,7 +452,7 @@ export const removeMember = async (req, res) => {
 
     io.to(memberId).emit("conversation-removed", { conversationId });
 
-    res.status(200).json({ message: "Thành viên đã được kick khỏi nhóm" });
+    res.status(200).json({ message: "Thành viên đã bị kick khỏi nhóm" });
   } catch (error) {
     console.error("Error removing member:", error);
     res.status(500).json({ message: "Lỗi hệ thống" });
@@ -469,18 +467,20 @@ export const transferOwnership = async (req, res) => {
 
     const conversation = await Conversation.findById(conversationId);
     if (!conversation) {
-      return res.status(404).json({ message: "Conversation not found" });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy cuộc trò chuyện" });
     }
 
     if (conversation.type !== "group") {
-      return res.status(400).json({ message: "Not a group chat" });
+      return res.status(400).json({ message: "Không phải nhóm chat" });
     }
 
     const isOwner = conversation.group.createBy.toString() === userId;
     if (!isOwner) {
-      return res
-        .status(403)
-        .json({ message: "Only group leader can transfer ownership" });
+      return res.status(403).json({
+        message: "Chỉ trưởng nhóm mới có quyền chuyển nhượng quyền sở hữu",
+      });
     }
 
     const isMember = conversation.participants.some(
@@ -489,7 +489,7 @@ export const transferOwnership = async (req, res) => {
     if (!isMember) {
       return res
         .status(400)
-        .json({ message: "New leader must be a member of the group" });
+        .json({ message: "Trưởng nhóm mới phải là thành viên của nhóm" });
     }
 
     conversation.group.createBy = newOwnerId;
@@ -500,9 +500,9 @@ export const transferOwnership = async (req, res) => {
       newOwnerId,
     });
 
-    res.status(200).json({ message: "Ownership transferred successfully" });
+    res.status(200).json({ message: "Chuyển quyền sở hữu thành công" });
   } catch (error) {
     console.error("Error transferring ownership:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: "Lỗi hệ thống" });
   }
 };

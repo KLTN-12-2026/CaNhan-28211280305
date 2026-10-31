@@ -18,24 +18,20 @@ import reportRoute from "./routes/reportRoute.js";
 
 dotenv.config();
 
-//const app = express();
 const PORT = process.env.PORT || 5001;
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 
-// Configuration
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// public routes
 app.use("/api/auth", authRoute);
 
-// private routes
 app.use(protectedRoute);
 app.use("/api/users", userRoute);
 app.use("/api/friends", friendRoute);

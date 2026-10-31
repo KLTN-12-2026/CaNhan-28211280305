@@ -190,12 +190,12 @@ export const toggleBanUser = async (req, res) => {
     if (isBanned) {
       await Session.deleteMany({ userId: user._id });
 
-      const socketId = onlineUser.get(user._id.toString());
-      if (socketId) {
-        const socket = io.sockets.sockets.get(socketId);
-        if (socket) {
-          socket.disconnect(true);
-        }
+      const socketIds = onlineUser.get(user._id.toString());
+      if (socketIds) {
+        socketIds.forEach((socketId) => {
+          const socket = io.sockets.sockets.get(socketId);
+          socket?.disconnect(true);
+        });
         onlineUser.delete(user._id.toString());
         io.emit("online-users", Array.from(onlineUser.keys()));
       }
