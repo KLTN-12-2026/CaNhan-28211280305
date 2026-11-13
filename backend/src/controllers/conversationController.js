@@ -145,6 +145,11 @@ export const getMessages = async (req, res) => {
       query.createdAt = { $lt: new Date(cursor) };
     }
     let messages = await Message.find(query)
+      .populate({
+        path: "replyTo",
+        select: "content imgUrl senderId callDetails",
+        populate: { path: "senderId", select: "displayName" },
+      })
       .sort({ createdAt: -1 })
       .limit(Number(limit) + 1);
     let nextCursor = null;

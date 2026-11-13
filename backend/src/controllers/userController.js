@@ -57,6 +57,21 @@ export const authMe = async (req, res) => {
   }
 };
 
+export const getBlockedUsers = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select("blockedUsers")
+      .populate("blockedUsers", "displayName username avatarUrl");
+
+    return res.status(200).json({
+      blockedUsers: (user?.blockedUsers || []).filter(Boolean),
+    });
+  } catch (error) {
+    console.error("Lỗi khi lấy danh sách người dùng bị chặn:", error);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+
 export const searchUserByUsername = async (req, res) => {
   try {
     const { username } = req.query;

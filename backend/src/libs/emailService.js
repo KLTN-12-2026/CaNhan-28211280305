@@ -28,12 +28,12 @@ export const sendOTPEmail = async (email, otp) => {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
-      subject: "Mã xác minh OTP - GOSSYP",
+      subject: "Mã xác minh OTP - WebConnect RT",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Xác minh Email</h2>
           <p style="color: #666; font-size: 16px;">
-            Cảm ơn bạn đã đăng ký với GOSSYP. Vui lòng sử dụng mã OTP dưới đây để xác minh email của bạn:
+            Cảm ơn bạn đã đăng ký với WebConnect RT. Vui lòng sử dụng mã OTP dưới đây để xác minh email của bạn:
           </p>
           <div style="background: #f0f0f0; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
             <h1 style="color: #007bff; letter-spacing: 5px; margin: 0;">
@@ -62,14 +62,14 @@ export const sendAccountLockedEmail = async (email, isLocked) => {
   try {
     const transporter = getTransporter();
     const subject = isLocked
-      ? "Thông báo khóa tài khoản - GOSSYP"
-      : "Thông báo mở khóa tài khoản - GOSSYP";
+      ? "Thông báo khóa tài khoản - WebConnect RT"
+      : "Thông báo mở khóa tài khoản - WebConnect RT";
 
     const content = isLocked
       ? `
         <h2 style="color: #d9534f;">Tài khoản của bạn đã bị khóa</h2>
         <p>
-          Chúng tôi thông báo rằng tài khoản GOSSYP của bạn đã bị khóa do vi phạm điều khoản sử dụng hoặc lý do bảo mật.
+          Chúng tôi thông báo rằng tài khoản WebConnect RT của bạn đã bị khóa do vi phạm điều khoản sử dụng hoặc lý do bảo mật.
         </p>
         <p>
           Nếu bạn cho rằng đây là sự nhầm lẫn, vui lòng liên hệ với bộ phận hỗ trợ của chúng tôi.
@@ -78,7 +78,7 @@ export const sendAccountLockedEmail = async (email, isLocked) => {
       : `
         <h2 style="color: #28a745;">Tài khoản của bạn đã được mở khóa</h2>
         <p>
-          Tài khoản GOSSYP của bạn đã được kích hoạt trở lại. Bạn có thể đăng nhập và sử dụng dịch vụ bình thường.
+          Tài khoản WebConnect RT của bạn đã được kích hoạt trở lại. Bạn có thể đăng nhập và sử dụng dịch vụ bình thường.
         </p>
       `;
 

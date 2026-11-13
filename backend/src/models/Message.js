@@ -55,6 +55,11 @@ const messageSchema = new mongoose.Schema(
     imgUrl: {
       type: String,
     },
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
     callDetails: {
       type: callDetailsSchema,
       default: null,

@@ -1,7 +1,7 @@
 export const adminMiddleware = (req, res, next) => {
-  if (req.user && req.user.role === "admin") {
+  if (req.user && ["admin", "superadmin"].includes(req.user.role)) {
     next();
   } else {
-    res.status(401).json({ message: "Không được ủy quyền" });
+    res.status(403).json({ message: "Bạn không có quyền quản trị" });
   }
 };

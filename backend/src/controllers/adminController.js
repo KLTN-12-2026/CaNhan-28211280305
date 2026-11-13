@@ -1,5 +1,6 @@
 import Message from "../models/Message.js";
 import User from "../models/User.js";
+import Conversation from "../models/Conversation.js";
 import Session from "../models/Session.js";
 import Report from "../models/Report.js";
 import AdminLog from "../models/AdminLog.js";
@@ -177,6 +178,19 @@ export const toggleBanUser = async (req, res) => {
     if (user._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ message: "Cannot ban yourself" });
     }
+    if (user.role === "superadmin") {
+      return res
+        .status(403)
+        .json({ message: "Cannot change a Super Admin account" });
+    }
+    if (req.user.role === "admin" && user.role === "admin") {
+      return res
+        .status(403)
+        .json({ message: "Admins can only manage regular users" });
+    }
+    if (typeof isBanned !== "boolean") {
+      return res.status(400).json({ message: "Invalid account status" });
+    }
 
     user.isBanned = isBanned;
     await user.save();
@@ -236,6 +250,11 @@ export const updateUserRole = async (req, res) => {
     if (user._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ message: "Cannot change your own role" });
     }
+    if (user.role === "superadmin") {
+      return res
+        .status(403)
+        .json({ message: "Cannot change a Super Admin role" });
+    }
 
     user.role = role;
     await user.save();
@@ -267,6 +286,16 @@ export const deleteUser = async (req, res) => {
     if (user._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ message: "Cannot delete yourself" });
     }
+    if (user.role === "superadmin") {
+      return res
+        .status(403)
+        .json({ message: "Cannot delete a Super Admin account" });
+    }
+    if (req.user.role === "admin" && user.role === "admin") {
+      return res
+        .status(403)
+        .json({ message: "Admins can only manage regular users" });
+    }
 
     await User.findByIdAndDelete(id);
 
@@ -290,9 +319,41 @@ export const getReports = async (req, res) => {
 
     const reports = await Report.find(query)
       .populate("reporterId", "displayName email avatarUrl")
+      .populate("reviewedBy", "displayName")
+      .populate("resolvedBy", "displayName")
       .sort({ createdAt: -1 });
 
-    res.status(200).json(reports);
+    const reportsWithTargets = await Promise.all(
+      reports.map(async (report) => {
+        let targetDetails = null;
+        if (report.targetType === "user") {
+          targetDetails = await User.findById(report.targetId)
+            .select("displayName username avatarUrl role isBanned")
+            .lean();
+        } else if (report.targetType === "message") {
+          targetDetails = await Message.findById(report.targetId)
+            .select("content imgUrl senderId conversationId createdAt")
+            .populate("senderId", "displayName username avatarUrl")
+            .populate("conversationId", "type group.name")
+            .lean();
+        } else if (report.targetType === "group") {
+          targetDetails = await Conversation.findOne({
+            _id: report.targetId,
+            type: "group",
+          })
+            .select("group participants createdAt")
+            .populate("participants.userId", "displayName username avatarUrl")
+            .lean();
+        }
+
+        return {
+          ...report.toObject(),
+          targetDetails,
+        };
+      }),
+    );
+
+    res.status(200).json(reportsWithTargets);
   } catch (error) {
     console.error("Error getting reports:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -305,22 +366,60 @@ export const resolveReport = async (req, res) => {
     const { status, actionTaken } = req.body;
     const adminId = req.user._id;
 
+    if (!["REVIEWED", "RESOLVED"].includes(status)) {
+      return res.status(400).json({ message: "Invalid report status" });
+    }
+
+    if (
+      typeof actionTaken !== "string" ||
+      actionTaken.trim().length > 500 ||
+      (status === "RESOLVED" && !actionTaken.trim())
+    ) {
+      return res.status(400).json({
+        message:
+          "A resolution note of up to 500 characters is required to resolve a report",
+      });
+    }
+
     const report = await Report.findById(id);
     if (!report) {
       return res.status(404).json({ message: "Report not found" });
     }
 
-    report.status = status || "RESOLVED";
+    if (
+      report.status === "RESOLVED" ||
+      (report.status === "REVIEWED" && status === "REVIEWED")
+    ) {
+      return res.status(400).json({
+        message: "Report cannot transition from its current status",
+      });
+    }
+
+    report.status = status;
+    report.resolutionNote = actionTaken.trim();
+    if (status === "REVIEWED") {
+      report.reviewedBy = adminId;
+      report.reviewedAt = new Date();
+    } else {
+      report.resolvedBy = adminId;
+      report.resolvedAt = new Date();
+    }
     await report.save();
 
     await AdminLog.create({
       adminId,
-      action: actionTaken || `RESOLVE_REPORT_${report.status}`,
+      action: `REPORT_STATUS_${report.status}`,
       targetId: report.targetId,
       reportId: report._id,
     });
 
-    res.status(200).json({ message: "Report resolved", report });
+    await report.populate([
+      { path: "reporterId", select: "displayName email avatarUrl" },
+      { path: "reviewedBy", select: "displayName" },
+      { path: "resolvedBy", select: "displayName" },
+    ]);
+
+    res.status(200).json({ message: "Report status updated", report });
   } catch (error) {
     console.error("Error resolving report:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -331,10 +430,50 @@ export const getAdminLogs = async (req, res) => {
   try {
     const logs = await AdminLog.find()
       .populate("adminId", "displayName email")
+      .populate(
+        "reportId",
+        "reporterId targetType targetId reason description status resolutionNote reviewedBy resolvedBy createdAt",
+      )
       .sort({ createdAt: -1 })
       .limit(100);
 
-    res.status(200).json(logs);
+    const logsWithDetails = await Promise.all(
+      logs.map(async (log) => {
+        const logDetails = log.toObject();
+        if (log.action.startsWith("REPORT_STATUS_")) {
+          const report = logDetails.reportId;
+          if (report) {
+            report.reporterId = await User.findById(report.reporterId)
+              .select("displayName email")
+              .lean();
+            if (report.targetType === "user") {
+              report.targetDetails = await User.findById(report.targetId)
+                .select("displayName username role isBanned")
+                .lean();
+            } else if (report.targetType === "message") {
+              report.targetDetails = await Message.findById(report.targetId)
+                .select("content senderId")
+                .populate("senderId", "displayName username")
+                .lean();
+            } else if (report.targetType === "group") {
+              report.targetDetails = await Conversation.findOne({
+                _id: report.targetId,
+                type: "group",
+              })
+                .select("group.name")
+                .lean();
+            }
+          }
+        } else {
+          logDetails.targetDetails = await User.findById(log.targetId)
+            .select("displayName username email role isBanned")
+            .lean();
+        }
+        return logDetails;
+      }),
+    );
+
+    res.status(200).json(logsWithDetails);
   } catch (error) {
     console.error("Error getting logs:", error);
     res.status(500).json({ message: "Internal Server Error" });

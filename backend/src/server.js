@@ -13,6 +13,7 @@ import { protectedRoute } from "./middlewares/authMiddleware.js";
 import cors from "cors";
 import { app, server } from "./socket/index.js";
 import { v2 as cloudinary } from "cloudinary";
+import User from "./models/User.js";
 
 import reportRoute from "./routes/reportRoute.js";
 
@@ -41,8 +42,38 @@ app.use("/api/admin", adminRoute);
 app.use("/api/ai", aiRoute);
 app.use("/api/reports", reportRoute);
 
-connectDB().then(() => {
-  server.listen(PORT, () => {
-    console.log(`Server start on PORT: ${PORT}`);
+const bootstrapSuperAdmin = async () => {
+  const username = process.env.SUPER_ADMIN_USERNAME?.trim().toLowerCase();
+  if (!username) {
+    console.warn(
+      "SUPER_ADMIN_USERNAME is not configured; no Super Admin was bootstrapped.",
+    );
+    return;
+  }
+
+  const user = await User.findOne({ username });
+  if (!user) {
+    console.warn(
+      "Configured SUPER_ADMIN_USERNAME does not match an existing account; no Super Admin was bootstrapped.",
+    );
+    return;
+  }
+
+  if (user.role !== "superadmin") {
+    user.role = "superadmin";
+    await user.save();
+    console.log("Configured Super Admin account bootstrapped.");
+  }
+};
+
+connectDB()
+  .then(async () => {
+    await bootstrapSuperAdmin();
+    server.listen(PORT, () => {
+      console.log(`Server start on PORT: ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Failed to initialize the server:", error);
+    process.exitCode = 1;
   });
-});

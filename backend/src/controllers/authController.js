@@ -76,8 +76,7 @@ export const signIn = async (req, res) => {
 
     if (user.isBanned) {
       return res.status(403).json({
-        message:
-          "Tài khoản của bạn đã bị khóa. Vui lòng kiểm tra email để biết thêm chi tiết.",
+        message: "Tài khoản của bạn đã bị khóa. Vui lòng kiểm tra lại.",
       });
     }
 

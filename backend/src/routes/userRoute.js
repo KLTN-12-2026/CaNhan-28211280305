@@ -1,6 +1,7 @@
 import express from "express";
 import {
   authMe,
+  getBlockedUsers,
   searchUserByUsername,
   uploadAvatar,
   updateUserInfo,
@@ -14,6 +15,7 @@ import { upload } from "../middlewares/uploadMiddleware.js";
 const router = express.Router();
 
 router.get("/me", authMe);
+router.get("/blocked", getBlockedUsers);
 router.get("/search", searchUserByUsername);
 router.post("/uploadAvatar", upload.single("file"), uploadAvatar);
 router.patch("/profile", updateUserInfo);

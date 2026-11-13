@@ -102,8 +102,89 @@ io.on("connection", async (socket) => {
     socket.join(id);
   });
 
-  socket.on("join-conversation", (conversationId) => {
-    socket.join(conversationId);
+  socket.on("join-conversation", async (conversationId) => {
+    if (
+      typeof conversationId !== "string" ||
+      !mongoose.Types.ObjectId.isValid(conversationId)
+    ) {
+      return;
+    }
+
+    try {
+      const isParticipant = await Conversation.exists({
+        _id: conversationId,
+        "participants.userId": user._id,
+      });
+      if (isParticipant) socket.join(conversationId);
+    } catch (error) {
+      console.error("Lỗi khi tham gia phòng hội thoại:", error);
+    }
+  });
+
+  const typingExpiryTimers = new Map();
+  const clearTypingState = (conversationId) => {
+    const timer = typingExpiryTimers.get(conversationId);
+    if (timer) clearTimeout(timer);
+    typingExpiryTimers.delete(conversationId);
+    if (socket.rooms.has(conversationId)) {
+      socket.to(conversationId).emit("typing:stop", {
+        conversationId,
+        userId,
+        displayName: user.displayName,
+      });
+    }
+  };
+
+  socket.on("typing:start", async (payload = {}) => {
+    const conversationId = payload?.conversationId;
+    if (
+      typeof conversationId !== "string" ||
+      !mongoose.Types.ObjectId.isValid(conversationId) ||
+      !socket.rooms.has(conversationId)
+    ) {
+      return;
+    }
+
+    if (!typingExpiryTimers.has(conversationId)) {
+      try {
+        const isParticipant = await Conversation.exists({
+          _id: conversationId,
+          "participants.userId": user._id,
+        });
+        if (!isParticipant) return;
+      } catch (error) {
+        console.error("Lỗi khi xác thực trạng thái đang nhập:", error);
+        return;
+      }
+    } else {
+      clearTimeout(typingExpiryTimers.get(conversationId));
+    }
+    socket.to(conversationId).emit("typing:start", {
+      conversationId,
+      userId,
+      displayName: user.displayName,
+    });
+    typingExpiryTimers.set(
+      conversationId,
+      setTimeout(() => clearTypingState(conversationId), 4000),
+    );
+  });
+
+  socket.on("typing:stop", (payload = {}) => {
+    const conversationId = payload?.conversationId;
+    if (
+      typeof conversationId !== "string" ||
+      !socket.rooms.has(conversationId)
+    ) {
+      return;
+    }
+    clearTypingState(conversationId);
+  });
+
+  socket.on("disconnecting", () => {
+    for (const conversationId of typingExpiryTimers.keys()) {
+      clearTypingState(conversationId);
+    }
   });
 
   Object.entries(callEvents).forEach(([eventName, relayEvent]) => {

@@ -10,6 +10,7 @@ import {
   getDashboardStats,
 } from "../controllers/adminController.js";
 import { adminMiddleware } from "../middlewares/adminMiddleware.js";
+import { superAdminMiddleware } from "../middlewares/superAdminMiddleware.js";
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.use(adminMiddleware);
 router.get("/stats", getDashboardStats);
 router.get("/users", getAllUsers);
 router.patch("/users/:id/ban", toggleBanUser);
-router.patch("/users/:id/role", updateUserRole);
+router.patch("/users/:id/role", superAdminMiddleware, updateUserRole);
 router.delete("/users/:id", deleteUser);
 
 router.get("/reports", getReports);

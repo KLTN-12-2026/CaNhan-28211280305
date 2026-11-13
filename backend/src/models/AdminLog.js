@@ -20,7 +20,7 @@ const adminLogSchema = new mongoose.Schema(
       ref: "Report",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const AdminLog = mongoose.model("AdminLog", adminLogSchema);
