@@ -21,6 +21,11 @@ const otpSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    purpose: {
+      type: String,
+      enum: ["signup", "two_factor_login", "two_factor_enable", "two_factor_disable"],
+      default: "signup",
+    },
     maxAttempts: {
       type: Number,
       default: 5,

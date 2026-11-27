@@ -2,6 +2,16 @@ import { uploadImageFromBuffer } from "../middlewares/uploadMiddleware.js";
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import mongoose from "mongoose";
+import Session from "../models/Session.js";
+import OTP from "../models/OTP.js";
+import Friend from "../models/Friend.js";
+import FriendRequest from "../models/FriendRequest.js";
+import Conversation from "../models/Conversation.js";
+import Message from "../models/Message.js";
+import SharedNote from "../models/SharedNote.js";
+import SharedBoard from "../models/SharedBoard.js";
+import Report from "../models/Report.js";
+import AdminLog from "../models/AdminLog.js";
 
 const updateBlockedUser = async (req, res, shouldBlock) => {
   try {
@@ -82,6 +92,11 @@ export const searchUserByUsername = async (req, res) => {
     const user = await User.findOne({ username }).select(
       "_id displayName avatarUrl username"
     );
+    if (user && user._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({
+        message: "Không thể gửi lời mời kết bạn cho chính mình",
+      });
+    }
     return res.status(200).json({ user });
   } catch (error) {
     console.error("Lỗi xảy ra khi searchUserByUsername", error);
@@ -199,6 +214,96 @@ export const changePassword = async (req, res) => {
     return res.status(200).json({ message: "Đổi mật khẩu thành công" });
   } catch (error) {
     console.error("Lỗi khi đổi mật khẩu:", error);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+
+export const deleteAccount = async (req, res) => {
+  try {
+    const { password, confirmation } = req.body;
+    const userId = req.user._id;
+
+    if (confirmation !== "XOA TAI KHOAN") {
+      return res.status(400).json({
+        message: "Cụm xác nhận xóa tài khoản không chính xác",
+      });
+    }
+    if (!password) {
+      return res.status(400).json({
+        message: "Vui lòng nhập mật khẩu hiện tại",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Người dùng không tồn tại" });
+    }
+    const passwordMatch = await bcrypt.compare(password, user.hashedPassword);
+    if (!passwordMatch) {
+      return res.status(401).json({ message: "Mật khẩu hiện tại không đúng" });
+    }
+
+    const conversations = await Conversation.find({
+      "participants.userId": userId,
+    }).select("_id");
+    const conversationIds = conversations.map((conversation) => conversation._id);
+
+    await Promise.all([
+      Session.deleteMany({ userId }),
+      OTP.deleteMany({ email: user.email }),
+      FriendRequest.deleteMany({
+        $or: [{ from: userId }, { to: userId }],
+      }),
+      Friend.deleteMany({
+        $or: [{ userA: userId }, { userB: userId }],
+      }),
+      Message.deleteMany({
+        $or: [
+          { senderId: userId },
+          { conversationId: { $in: conversationIds } },
+        ],
+      }),
+      SharedNote.deleteMany({ conversationId: { $in: conversationIds } }),
+      SharedBoard.deleteMany({ conversationId: { $in: conversationIds } }),
+      Conversation.deleteMany({ _id: { $in: conversationIds } }),
+      Report.deleteMany({
+        $or: [
+          { reporterId: userId },
+          { reviewedBy: userId },
+          { resolvedBy: userId },
+          { targetType: "user", targetId: userId },
+        ],
+      }),
+      AdminLog.deleteMany({
+        $or: [{ adminId: userId }, { targetId: userId }],
+      }),
+    ]);
+
+    await Conversation.updateMany(
+      {},
+      {
+        $pull: {
+          participants: { userId },
+          seenBy: userId,
+        },
+        $unset: {
+          [`unreadCounts.${userId}`]: 1,
+        },
+      },
+    );
+
+    await User.updateMany(
+      { blockedUsers: userId },
+      { $pull: { blockedUsers: userId } },
+    );
+    await User.findByIdAndDelete(userId);
+
+    res.clearCookie("refreshToken");
+    return res.status(200).json({
+      message: "Tài khoản đã được xóa",
+    });
+  } catch (error) {
+    console.error("Lỗi khi xóa tài khoản:", error);
     return res.status(500).json({ message: "Lỗi hệ thống" });
   }
 };

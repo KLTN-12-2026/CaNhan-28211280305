@@ -326,6 +326,7 @@ export const getReports = async (req, res) => {
     const reportsWithTargets = await Promise.all(
       reports.map(async (report) => {
         let targetDetails = null;
+        let chatContext = [];
         if (report.targetType === "user") {
           targetDetails = await User.findById(report.targetId)
             .select("displayName username avatarUrl role isBanned")
@@ -346,9 +347,87 @@ export const getReports = async (req, res) => {
             .lean();
         }
 
+        const reporterId =
+          report.reporterId?._id?.toString() ||
+          report.reporterId?.toString();
+        let conversations = [];
+
+        if (report.targetType === "message" && targetDetails?.conversationId?._id) {
+          conversations = await Conversation.find({
+            _id: targetDetails.conversationId._id,
+          })
+            .select("type group participants")
+            .populate("participants.userId", "displayName username avatarUrl")
+            .lean();
+        } else if (report.targetType === "user" && reporterId) {
+          conversations = await Conversation.find({
+            type: "direct",
+            "participants.userId": {
+              $all: [reporterId, report.targetId],
+            },
+          })
+            .select("type group participants")
+            .populate("participants.userId", "displayName username avatarUrl")
+            .limit(3)
+            .lean();
+        } else if (report.targetType === "group") {
+          conversations = await Conversation.find({
+            _id: report.targetId,
+            type: "group",
+          })
+            .select("type group participants")
+            .populate("participants.userId", "displayName username avatarUrl")
+            .lean();
+        }
+
+        chatContext = await Promise.all(
+          conversations.map(async (conversation) => {
+            let messages;
+            if (report.targetType === "message" && targetDetails?.createdAt) {
+              const [before, after] = await Promise.all([
+                Message.find({
+                  conversationId: conversation._id,
+                  createdAt: { $lte: targetDetails.createdAt },
+                })
+                  .sort({ createdAt: -1 })
+                  .limit(25)
+                  .populate("senderId", "displayName username avatarUrl")
+                  .lean(),
+                Message.find({
+                  conversationId: conversation._id,
+                  createdAt: { $gt: targetDetails.createdAt },
+                })
+                  .sort({ createdAt: 1 })
+                  .limit(25)
+                  .populate("senderId", "displayName username avatarUrl")
+                  .lean(),
+              ]);
+              messages = [...before.reverse(), ...after];
+            } else {
+              messages = await Message.find({
+                conversationId: conversation._id,
+              })
+                .sort({ createdAt: -1 })
+                .limit(60)
+                .populate("senderId", "displayName username avatarUrl")
+                .lean();
+              messages = messages.reverse();
+            }
+
+            return {
+              conversationId: conversation._id,
+              type: conversation.type,
+              name: conversation.group?.name || null,
+              participants: conversation.participants || [],
+              messages,
+            };
+          }),
+        );
+
         return {
           ...report.toObject(),
           targetDetails,
+          chatContext,
         };
       }),
     );

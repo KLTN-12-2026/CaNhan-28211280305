@@ -49,11 +49,79 @@ export const sendOTPEmail = async (email, otp) => {
         </div>
       `,
     };
-
     await transporter.sendMail(mailOptions);
     return true;
   } catch (error) {
     console.error("Lỗi khi gửi email OTP:", error);
+    throw error;
+  }
+};
+
+export const sendTwoFactorOTPEmail = async (email, otp, purpose) => {
+  try {
+    const transporter = getTransporter();
+    const content = {
+      login: {
+        subject: "Mã xác thực đăng nhập - WebConnect RT",
+        title: "Xác thực đăng nhập",
+        message:
+          "Tài khoản của bạn vừa yêu cầu đăng nhập. Nhập mã xác minh dưới đây để hoàn tất xác thực hai bước:",
+        warning:
+          "Nếu bạn không thực hiện đăng nhập này, hãy đổi mật khẩu và đăng xuất các thiết bị khác.",
+      },
+      enable: {
+        subject: "Xác nhận bật xác thực hai bước - WebConnect RT",
+        title: "Bật xác thực hai bước",
+        message:
+          "Bạn đang yêu cầu bật xác thực hai bước cho tài khoản WebConnect RT. Nhập mã dưới đây để xác nhận:",
+        warning:
+          "Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email và kiểm tra bảo mật tài khoản.",
+      },
+      disable: {
+        subject: "Xác nhận tắt xác thực hai bước - WebConnect RT",
+        title: "Tắt xác thực hai bước",
+        message:
+          "Bạn đang yêu cầu tắt xác thực hai bước cho tài khoản WebConnect RT. Nhập mã dưới đây để xác nhận:",
+        warning:
+          "Nếu bạn không thực hiện thao tác này, vui lòng bỏ qua email và bảo vệ tài khoản của mình.",
+      },
+    };
+    const selected =
+      purpose === "enable"
+        ? content.enable
+        : purpose === "disable"
+          ? content.disable
+          : content.login;
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: selected.subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">${selected.title}</h2>
+          <p style="color: #666; font-size: 16px;">
+            ${selected.message}
+          </p>
+          <div style="background: #eef4ff; border: 1px solid #d9e5ff; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <h1 style="color: #2563eb; letter-spacing: 5px; margin: 0;">
+              ${otp}
+            </h1>
+          </div>
+          <p style="color: #666; font-size: 14px;">
+            Mã xác minh chỉ có hiệu lực trong 10 phút.
+          </p>
+          <p style="color: #999; font-size: 14px;">
+            ${selected.warning}
+          </p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error("Lỗi khi gửi email xác thực hai bước:", error);
     throw error;
   }
 };

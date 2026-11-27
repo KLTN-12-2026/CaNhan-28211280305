@@ -1,12 +1,16 @@
 import Friend from "../models/Friend.js";
 import User from "../models/User.js";
 import FriendRequest from "../models/FriendRequest.js";
+import mongoose from "mongoose";
 
 export const sendFriendRequest = async (req, res) => {
   try {
     const { to, message } = req.body;
     const from = req.user._id;
-    if (from === to) {
+    if (!mongoose.Types.ObjectId.isValid(to)) {
+      return res.status(400).json({ message: "Người dùng không hợp lệ" });
+    }
+    if (from.toString() === to.toString()) {
       return res
         .status(400)
         .json({ message: "Không thể gửi lời mời kết bạn cho chính mình" });
@@ -70,6 +74,12 @@ export const acceptFriendRequest = async (req, res) => {
       return res
         .status(403)
         .json({ message: "Bạn không có quyền chấp nhận lời mời này" });
+    }
+    if (request.from.toString() === request.to.toString()) {
+      await FriendRequest.findByIdAndDelete(requestId);
+      return res.status(400).json({
+        message: "Không thể kết bạn với chính mình",
+      });
     }
 
     const friend = await Friend.create({
@@ -171,6 +181,9 @@ export const deleteFriend = async (req, res) => {
     const userId = req.user._id.toString();
     const friendIdStr = friendId.toString();
 
+    if (!mongoose.Types.ObjectId.isValid(friendId)) {
+      return res.status(400).json({ message: "Người dùng không hợp lệ" });
+    }
     if (userId === friendIdStr) {
       return res.status(400).json({ message: "Không thể xóa chính mình" });
     }
