@@ -4,7 +4,6 @@ import {
   Check,
   MessageCircle,
   PanelsTopLeft,
-  ShieldCheck,
   Sparkles,
   UsersRound,
   Video,
@@ -217,18 +216,6 @@ const LandingPage = () => {
                     Minh Anh đang nhập...
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="absolute -left-5 top-12 hidden items-center gap-3 rounded-2xl border border-white bg-white px-4 py-3 shadow-xl sm:flex">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                <ShieldCheck className="size-5" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-800">
-                  Kết nối an tâm
-                </p>
-                <p className="text-xs text-slate-500">Không gian của bạn</p>
               </div>
             </div>
 

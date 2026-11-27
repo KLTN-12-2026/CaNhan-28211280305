@@ -37,6 +37,7 @@ const OTPVerification = ({
         password: signupData.password,
         firstName: signupData.firstName,
         lastName: signupData.lastName,
+        acceptedTerms: true,
       });
 
       onVerified();

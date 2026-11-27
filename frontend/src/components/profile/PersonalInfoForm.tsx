@@ -72,48 +72,48 @@ const PersonalInfoForm = ({ userInfo, onUpdate }: Props) => {
   };
 
   return (
-    <Card className="glass-strong border-border/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Heart className="size-5 text-primary" />
+    <Card className="gap-0 overflow-hidden rounded-2xl border border-border/30 bg-card/95 py-0 shadow-sm">
+      <CardHeader className="px-4 pb-2 pt-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Heart className="size-4 text-primary" />
           Thông tin cá nhân
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-xs">
           Cập nhật chi tiết cá nhân và thông tin hồ sơ của bạn
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <CardContent className="space-y-2 rounded-b-2xl px-4 pb-4">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           {PERSONAL_FIELDS.map(({ key, label, type }) => (
-            <div key={key} className="space-y-2">
-              <Label htmlFor={key}>{label}</Label>
+            <div key={key} className="space-y-1.5">
+              <Label htmlFor={key} className="text-xs">{label}</Label>
               <Input
                 id={key}
                 type={type ?? "text"}
                 value={formData[key as keyof typeof formData]}
                 onChange={(e) => handleChange(key, e.target.value)}
-                className="glass-light border-border/30"
+                className="glass-light h-8 border-border/30"
               />
             </div>
           ))}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="bio">Giới thiệu</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="bio" className="text-xs">Giới thiệu</Label>
           <Textarea
             id="bio"
-            rows={3}
+            rows={1}
             value={formData.bio}
             onChange={(e) => handleChange("bio", e.target.value)}
-            className="glass-light border-border/30 resize-none"
+            className="glass-light h-12 border-border/30 resize-none"
           />
         </div>
 
         <Button
           onClick={handleSave}
           disabled={isLoading}
-          className="w-full md:w-auto bg-gradient-primary hover:opacity-90 transition-opacity"
+          className="h-9 w-full md:w-auto bg-gradient-primary hover:opacity-90 transition-opacity"
         >
           {isLoading ? "Đang lưu..." : "Lưu thay đổi"}
         </Button>

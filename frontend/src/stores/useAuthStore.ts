@@ -53,7 +53,11 @@ export const useAuthStore = create<AuthState>()(
           get().clearState();
           set({ loading: true });
 
-          const { accessToken } = await authService.signIn(username, password);
+          const result = await authService.signIn(username, password);
+          if ("requiresTwoFactor" in result) {
+            return result;
+          }
+          const { accessToken } = result;
           get().setAccessToken(accessToken);
           await get().fetchMe();
           if (!get().accessToken) {

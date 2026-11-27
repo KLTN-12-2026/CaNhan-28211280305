@@ -13,39 +13,33 @@ interface ProfileCardProps {
 const ProfileCard = ({ user }: ProfileCardProps) => {
   const { onlineUsers } = useSocketStore();
   if (!user) return;
-  if (!user.bio) {
-    user.bio = "Có làm mới có ăn";
-  }
-
   const isOnline = onlineUsers.includes(user._id) ? true : false;
+  const bio = user.bio?.trim() || "Có làm mới có ăn";
 
   return (
-    <Card className="overflow-hidden p-0 h-52 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
-      <CardContent className="mt-20 pb-8 flex flex-col sm:flex-row items-center sm:items-end gap-6">
-        <div className="relative">
+    <Card className="h-28 overflow-hidden border-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-0">
+      <CardContent className="flex h-full items-center gap-3 px-4 sm:gap-5 sm:px-6">
+        <div className="relative shrink-0">
           <UserAvatar
             type="profile"
             name={user.displayName}
             avatarUrl={user.avatarUrl ?? undefined}
-            className="ring-4 ring-white shadow-lg"
+            className="size-16 ring-4 ring-white shadow-lg sm:size-20"
           />
           <AvatarUploader />
         </div>
-        {/* user info */}
-        <div className="text-center sm:text-left flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-base font-semibold tracking-tight text-white sm:text-lg">
             {user.displayName}
           </h1>
-          {user.bio && (
-            <p className="text-white/70 text-sm mt-2 max-w-lg line-clamp-2">
-              {user.bio}
-            </p>
-          )}
+          <p className="mt-1 truncate text-xs text-white/75 sm:text-sm">
+            {bio}
+          </p>
         </div>
-        {/* status */}
         <Badge
           className={cn(
-            "flex items-center gap-2 capitalize",
+            "shrink-0 items-center gap-2 capitalize",
+            "hidden sm:flex",
             isOnline
               ? "bg-green-100 text-green-700"
               : "bg-slate-100 text-slate-700"

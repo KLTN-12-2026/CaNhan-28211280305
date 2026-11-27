@@ -13,6 +13,7 @@ export interface User {
   role?: "user" | "admin" | "superadmin";
   isBanned?: boolean;
   isOnline?: boolean;
+  twoFactorEnabled?: boolean;
   blockedUsers?: string[];
 }
 

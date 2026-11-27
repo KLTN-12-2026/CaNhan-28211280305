@@ -73,4 +73,65 @@ export const authService = {
     });
     return res.data.preferences;
   },
+  getLoginSessions: async () => {
+    const res = await api.get("/users/sessions", {
+      withCredentials: true,
+    });
+    return res.data.sessions as Array<{
+      _id: string;
+      ipAddress?: string | null;
+      userAgent?: string | null;
+      lastSeenAt: string;
+      createdAt: string;
+      expiresAt: string;
+      isCurrent: boolean;
+    }>;
+  },
+  revokeLoginSession: async (sessionId: string) => {
+    const res = await api.delete(`/users/sessions/${sessionId}`, {
+      withCredentials: true,
+    });
+    return res.data;
+  },
+  revokeOtherLoginSessions: async () => {
+    const res = await api.delete("/users/sessions", {
+      withCredentials: true,
+    });
+    return res.data;
+  },
+  requestTwoFactorChange: async (action: "enable" | "disable") => {
+    const res = await api.post(
+      "/users/two-factor/request",
+      { action },
+      { withCredentials: true },
+    );
+    return res.data;
+  },
+  verifyTwoFactorChange: async (
+    action: "enable" | "disable",
+    otp: string,
+    password?: string,
+  ) => {
+    const res = await api.post(
+      "/users/two-factor/verify",
+      { action, otp, password },
+      { withCredentials: true },
+    );
+    return res.data as { twoFactorEnabled: boolean };
+  },
+  verifyLoginTwoFactor: async (challengeToken: string, otp: string) => {
+    const res = await api.post(
+      "/auth/signin/2fa",
+      { challengeToken, otp },
+      { withCredentials: true },
+    );
+    return res.data as { accessToken: string };
+  },
+  deleteAccount: async (password: string, confirmation: string) => {
+    const res = await api.delete("/users/account", {
+      data: { password, confirmation },
+      withCredentials: true,
+    });
+    return res.data;
+  },
 };

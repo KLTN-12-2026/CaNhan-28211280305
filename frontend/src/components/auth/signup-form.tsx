@@ -10,6 +10,7 @@ import { useNavigate } from "react-router";
 import OTPVerification from "./OTPVerification";
 import api from "@/lib/axios";
 import { useState } from "react";
+import LegalDialog from "./LegalDialog";
 
 const signUpSchema = z.object({
   firstName: z.string().min(1, "Tên bắt buộc phải có"),
@@ -17,6 +18,9 @@ const signUpSchema = z.object({
   username: z.string().min(3, "Tên đăng nhập phải có ít nhất 3 ký tự"),
   email: z.email("Email không hợp lệ"),
   password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
+  acceptedTerms: z.boolean().refine((value) => value, {
+    message: "Bạn cần đồng ý với điều khoản và chính sách",
+  }),
 });
 
 type SignUpFormValues = z.infer<typeof signUpSchema>;
@@ -29,6 +33,9 @@ export function SignupForm({
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [signupData, setSignupData] = useState<SignUpFormValues | null>(null);
   const [otpError, setOtpError] = useState("");
+  const [legalDialog, setLegalDialog] = useState<"terms" | "privacy" | null>(
+    null,
+  );
 
   const {
     register,
@@ -36,6 +43,9 @@ export function SignupForm({
     formState: { errors, isSubmitting },
   } = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      acceptedTerms: false,
+    },
   });
 
   const onSubmit = async (data: SignUpFormValues) => {
@@ -49,6 +59,7 @@ export function SignupForm({
         email,
         firstName: firstName,
         lastName: lastName,
+        acceptedTerms: data.acceptedTerms,
       });
 
       if (response.status === 200) {
@@ -75,25 +86,25 @@ export function SignupForm({
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="overflow-hidden p-0 border-border">
+    <div className={cn("flex flex-col", className)} {...props}>
+      <Card className="overflow-hidden border-border shadow-xl">
         <CardContent className="grid p-0 md:grid-cols-2">
-          <form className="p-6 md:p-8" onSubmit={handleSubmit(onSubmit)}>
-            <div className="flex flex-col gap-6">
+          <form className="p-5 sm:p-6" onSubmit={handleSubmit(onSubmit)}>
+            <div className="flex flex-col gap-4">
               {/*Header*/}
-              <div className="flex flex-col items-center text-center gap-2">
+              <div className="flex flex-col items-center text-center gap-1">
                 <a href="/" className="mx-auto block w-fit text-center">
-                  <img src="/logo.svg" alt="logo" />
+                  <img src="/logo.svg" alt="logo" className="h-8 w-auto" />
                 </a>
 
-                <h1 className="text-2xl font-bold">Tạo tài khoản</h1>
-                <p className="text-muted-foreground text-balance">
+                <h1 className="text-xl font-bold sm:text-2xl">ĐĂNG KÝ</h1>
+                <p className="text-sm text-muted-foreground text-balance">
                   Chào mừng bạn! Hãy đăng ký để bắt đầu
                 </p>
               </div>
               {/*Họ và tên */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="lastname" className="block text-sm">
                     Họ
                   </Label>
@@ -102,7 +113,7 @@ export function SignupForm({
                     <p className="error-message">{errors.lastName.message}</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="firstname" className="block text-sm">
                     Tên
                   </Label>
@@ -117,7 +128,7 @@ export function SignupForm({
                 </div>
               </div>
               {/*username*/}
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
                 <Label htmlFor="username" className="block text-sm">
                   Tên đăng nhập
                 </Label>
@@ -127,7 +138,7 @@ export function SignupForm({
                 )}
               </div>
               {/*email */}
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
                 <Label htmlFor="email" className="block text-sm">
                   Email
                 </Label>
@@ -137,7 +148,7 @@ export function SignupForm({
                 )}
               </div>
               {/*password */}
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
                 <Label htmlFor="password" className="block text-sm">
                   Mật khẩu
                 </Label>
@@ -148,6 +159,39 @@ export function SignupForm({
                 />
                 {errors.password && (
                   <p className="error-message">{errors.password.message}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <label className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 size-4 accent-primary"
+                    {...register("acceptedTerms")}
+                  />
+                  <span>
+                    Tôi đã đọc và đồng ý với{" "}
+                    <button
+                      type="button"
+                      className="underline underline-offset-4 hover:text-primary"
+                      onClick={() => setLegalDialog("terms")}
+                    >
+                      Điều khoản dịch vụ
+                    </button>{" "}
+                    và{" "}
+                    <button
+                      type="button"
+                      className="underline underline-offset-4 hover:text-primary"
+                      onClick={() => setLegalDialog("privacy")}
+                    >
+                      Chính sách bảo mật
+                    </button>
+                    .
+                  </span>
+                </label>
+                {errors.acceptedTerms && (
+                  <p className="error-message">
+                    {errors.acceptedTerms.message}
+                  </p>
                 )}
               </div>
               {/*nút đăng ký */}
@@ -163,20 +207,24 @@ export function SignupForm({
               </div>
             </div>
           </form>
-          <div className="bg-muted relative hidden md:block">
+          <div className="bg-muted relative hidden min-h-[560px] md:block">
             <img
               src="/placeholderSignUp.png"
               alt="Image"
-              className="absolute top-1/2 -translate-y-1/2 object-cover "
+              className="absolute inset-0 size-full object-cover"
             />
           </div>
         </CardContent>
       </Card>
-      <div className="text-xs text-balance px-6 text-center *:[a]:hover:text-primary text-muted-foreground *:[a]:underline *:[a]:underline-offset-4">
-        Bằng cách nhấp vào tiếp tục, bạn đồng ý với{" "}
-        <a href="#">Điều khoản dịch vụ</a> và <a href="#">Chính sách bảo mật</a>
-        .
-      </div>
+      {legalDialog && (
+        <LegalDialog
+          open
+          document={legalDialog}
+          onOpenChange={(open) => {
+            if (!open) setLegalDialog(null);
+          }}
+        />
+      )}
     </div>
   );
 }

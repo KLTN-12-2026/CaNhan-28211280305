@@ -60,25 +60,25 @@ const PreferencesForm = ({ userInfo }: Props) => {
   };
 
   return (
-    <Card className="glass-strong border-border/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sun className="h-5 w-5 text-primary" />
+    <Card className="glass-strong border-border/30 overflow-hidden">
+      <CardHeader className="px-4 pb-3 pt-4">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Sun className="h-4 w-4 text-primary" />
           Tuỳ chỉnh ứng dụng
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-xs">
           Cá nhân hoá trải nghiệm trò chuyện của bạn
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-3 px-4 pb-4">
         {/* Dark Mode */}
         <div className="flex items-center justify-between">
           <div>
-            <Label htmlFor="theme-toggle" className="text-base font-medium">
+            <Label htmlFor="theme-toggle" className="text-sm font-medium">
               Chế độ tối
             </Label>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Chuyển đổi giữa giao diện sáng và tối
             </p>
           </div>
@@ -98,10 +98,10 @@ const PreferencesForm = ({ userInfo }: Props) => {
         {/* Online Status */}
         <div className="flex items-center justify-between">
           <div>
-            <Label htmlFor="online-status" className="text-base font-medium">
+            <Label htmlFor="online-status" className="text-sm font-medium">
               Hiển thị trạng thái online
             </Label>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Cho phép người khác thấy khi bạn đang online
             </p>
           </div>

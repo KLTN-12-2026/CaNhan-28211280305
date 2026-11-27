@@ -8,6 +8,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useNavigate } from "react-router";
+import { useState } from "react";
+import LegalDialog from "./LegalDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import { authService } from "@/services/authService";
+import { useChatStore } from "@/stores/useChatStore";
+import { toast } from "sonner";
 
 const signInSchema = z.object({
   username: z.string().min(3, "Tên đăng nhập phải có ít nhất 3 ký tự"),
@@ -20,8 +33,17 @@ export function SigninForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const { signIn } = useAuthStore();
+  const { signIn, setAccessToken, fetchMe } = useAuthStore();
   const navigate = useNavigate();
+  const [legalDialog, setLegalDialog] = useState<"terms" | "privacy" | null>(
+    null,
+  );
+  const [twoFactorChallenge, setTwoFactorChallenge] = useState<{
+    challengeToken: string;
+    email: string;
+  } | null>(null);
+  const [twoFactorOtp, setTwoFactorOtp] = useState("");
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const {
     register,
     handleSubmit,
@@ -32,9 +54,40 @@ export function SigninForm({
 
   const onSubmit = async (data: SignInFormValues) => {
     const { username, password } = data;
-    const signedIn = await signIn(username, password);
-    if (signedIn) {
+    const result = await signIn(username, password);
+    if (typeof result === "object" && result.requiresTwoFactor) {
+      setTwoFactorChallenge({
+        challengeToken: result.challengeToken,
+        email: result.email,
+      });
+      setTwoFactorOtp("");
+      return;
+    }
+    if (result === true) {
       navigate("/chat");
+    }
+  };
+
+  const handleVerifyTwoFactor = async () => {
+    if (!twoFactorChallenge || twoFactorOtp.length !== 6) return;
+    try {
+      setTwoFactorLoading(true);
+      const { accessToken } = await authService.verifyLoginTwoFactor(
+        twoFactorChallenge.challengeToken,
+        twoFactorOtp,
+      );
+      setAccessToken(accessToken);
+      await fetchMe();
+      useChatStore.getState().fetchConversations();
+      toast.success("Đăng nhập thành công");
+      setTwoFactorChallenge(null);
+      navigate("/chat");
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.message || "Xác thực hai bước thất bại",
+      );
+    } finally {
+      setTwoFactorLoading(false);
     }
   };
   return (
@@ -49,7 +102,7 @@ export function SigninForm({
                   <img src="/logo.svg" alt="logo" />
                 </a>
 
-                <h1 className="text-2xl font-bold">Chào mừng quay lại</h1>
+                <h1 className="text-2xl font-bold">ĐĂNG NHẬP</h1>
                 <p className="text-muted-foreground text-balance">
                   Đăng nhập vào tài khoản của bạn
                 </p>
@@ -102,9 +155,78 @@ export function SigninForm({
       </Card>
       <div className="text-xs text-balance px-6 text-center *:[a]:hover:text-primary text-muted-foreground *:[a]:underline *:[a]:underline-offset-4">
         Bằng cách nhấp vào tiếp tục, bạn đồng ý với{" "}
-        <a href="#">Điều khoản dịch vụ</a> và <a href="#">Chính sách bảo mật</a>
+        <button
+          type="button"
+          className="underline underline-offset-4 hover:text-primary"
+          onClick={() => setLegalDialog("terms")}
+        >
+          Điều khoản dịch vụ
+        </button>{" "}
+        và{" "}
+        <button
+          type="button"
+          className="underline underline-offset-4 hover:text-primary"
+          onClick={() => setLegalDialog("privacy")}
+        >
+          Chính sách bảo mật
+        </button>
         .
       </div>
+      {legalDialog && (
+        <LegalDialog
+          open
+          document={legalDialog}
+          onOpenChange={(open) => {
+            if (!open) setLegalDialog(null);
+          }}
+        />
+      )}
+      <Dialog
+        open={twoFactorChallenge !== null}
+        onOpenChange={(open) => {
+          if (!open && !twoFactorLoading) setTwoFactorChallenge(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xác thực hai bước</DialogTitle>
+            <DialogDescription>
+              Nhập mã OTP 6 chữ số đã gửi đến{" "}
+              <strong>{twoFactorChallenge?.email}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={twoFactorOtp}
+            onChange={(event) =>
+              setTwoFactorOtp(
+                event.target.value.replace(/\D/g, "").slice(0, 6),
+              )
+            }
+            inputMode="numeric"
+            maxLength={6}
+            placeholder="000000"
+            className="text-center text-2xl tracking-[0.35em]"
+            disabled={twoFactorLoading}
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTwoFactorChallenge(null)}
+              disabled={twoFactorLoading}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleVerifyTwoFactor()}
+              disabled={twoFactorLoading || twoFactorOtp.length !== 6}
+            >
+              {twoFactorLoading ? "Đang xác minh..." : "Xác minh"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

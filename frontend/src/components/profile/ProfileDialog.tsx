@@ -22,17 +22,17 @@ const ProfileDialog = ({ open, setOpen }: ProfileDialogProps) => {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="overflow-y-auto p-0 bg-transparent border-0 shadow-2xl">
-        <div className="bg-gradient-glass">
-          <div className="max-w-4xl mx-auto p-4">
-            <DialogHeader className="mb-6">
-              <DialogTitle className="text-2xl font-bold text-foreground">
+      <DialogContent className="h-[min(620px,calc(100vh-2rem))] max-w-[calc(100%-2rem)] overflow-hidden p-0 border-border/40 bg-transparent shadow-2xl sm:max-w-3xl">
+        <div className="h-full bg-gradient-glass">
+          <div className="mx-auto flex h-full max-w-3xl flex-col p-3 sm:p-4">
+            <DialogHeader className="mb-3">
+              <DialogTitle className="text-xl font-bold text-foreground">
                 Hồ sơ & Cài đặt
               </DialogTitle>
             </DialogHeader>
             <ProfileCard user={user} />
-            <Tabs defaultValue="personal" className="my-4">
-              <TabsList className="grid w-full grid-cols-3 glass-light">
+            <Tabs defaultValue="personal" className="mt-3 min-h-0 flex-1">
+              <TabsList className="grid h-9 w-full grid-cols-3 glass-light">
                 <TabsTrigger
                   value="personal"
                   className="data-[state=active]:glass-strong"
@@ -53,15 +53,18 @@ const ProfileDialog = ({ open, setOpen }: ProfileDialogProps) => {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="personal">
+              <TabsContent value="personal" className="mt-2">
                 <PersonalInfoForm userInfo={user} onUpdate={handleUserUpdate} />
               </TabsContent>
 
-              <TabsContent value="preferences">
+              <TabsContent value="preferences" className="mt-2">
                 <PreferencesForm userInfo={user} />
               </TabsContent>
 
-              <TabsContent value="privacy">
+              <TabsContent
+                value="privacy"
+                className="mt-2 max-h-[360px] overflow-y-auto pr-1"
+              >
                 <PrivacySettings />
               </TabsContent>
             </Tabs>
